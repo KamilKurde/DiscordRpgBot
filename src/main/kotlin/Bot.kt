@@ -13,7 +13,9 @@ suspend fun main(): Unit = bot(System.getenv("RpgBotToken")) {
 	}
 	events {
 		onMessageCreate {
-			processor.process(it)
+			with(processor){
+				process(it)
+			}
 		}
 	}
 }

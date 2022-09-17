@@ -9,25 +9,33 @@ import java.io.FileNotFoundException
 
 class CommandProcessor {
 
-	private val characters: MutableMap<String, Character> = mutableMapOf()
+	val characters: MutableMap<String, Character> = mutableMapOf()
 
-	private val json = Json {
+	val json = Json {
 		encodeDefaults = true
 		ignoreUnknownKeys = true
 	}
 
-	context(BotContext)
-	suspend fun process(message: Message) {
+	private val commands: List<Command>
+		get() = buildList {
+			addAll(StaticCommand.values())
+			val characterCommands = characters.map {
+				CharacterCommand(it.key) { _, content, trigger ->
+					it.value.modify(content, trigger)
+				}
+			}
+			addAll(characterCommands)
+		}
+
+	suspend fun BotContext.process(message: Message) {
 		if (message.content.startsWith("rpg ", ignoreCase = true).not()) return
 		val content = message.content.drop(4)
-		when {
-			content.startsWith("create", ignoreCase = true) -> create(content.drop(7), message)
-			content.startsWith("clear", ignoreCase = true) -> clear(content.drop(6), message).also { message.reply { footer = EmbedFooter("Cleared") } }
-			content.startsWith("save", ignoreCase = true) -> save(content.drop(5)).also { message.reply { footer = EmbedFooter("Saved") } }
-			content.startsWith("load", ignoreCase = true) -> load(content.drop(5)).also { message.reply { footer = EmbedFooter("Loaded") } }
-			characters.any { content.startsWith(it.key, ignoreCase = true) } -> characters.asIterable().first { content.startsWith(it.key, ignoreCase = true) }.run { value.modify(content.drop(key.length + 1), message) }
-			else -> return
+
+		val command = commands.firstOrNull {
+			content.startsWith(it.name, ignoreCase = true)
 		}
+
+		command?.execute?.let { it(this@process, this@CommandProcessor, content.drop(command.name.length + 1), message) }
 	}
 
 	fun save(name: String) = File("$name.rpg").writeText(json.encodeToString(characters))
@@ -39,20 +47,6 @@ class CommandProcessor {
 	}.let {
 		characters.clear()
 		characters.putAll(it)
-	}
-
-	private fun clear(name: String, trigger: Message){
-		when{
-			name.isBlank() -> characters.clear()
-			else -> File("$name.rpg").delete()
-		}
-	}
-
-	context(BotContext)
-	private suspend fun create(content: String, trigger: Message) {
-		val name = content.substringBefore(" ").trim()
-		characters[name] = Character()
-		trigger.react("\uD83C\uDD97")
 	}
 
 	context(BotContext)
@@ -98,4 +92,46 @@ class CommandProcessor {
 			}
 		}
 	}
+
+	sealed interface Command {
+		val name: String
+		val execute: suspend BotContext.(processor: CommandProcessor, content: String, trigger: Message) -> Unit
+	}
+
+	enum class StaticCommand(override val execute: suspend BotContext.(processor: CommandProcessor, content: String, trigger: Message) -> Unit) : Command {
+		Create({ processor, content, trigger ->
+			val name = content.substringBefore(" ").trim()
+			processor.characters[name] = Character()
+			trigger.react("\uD83C\uDD97")
+		}),
+		Clear({ processor, name, trigger ->
+			when {
+				name.isBlank() -> processor.characters.clear()
+				else -> File("$name.rpg").delete()
+			}
+			trigger.reply { footer = EmbedFooter("Cleared") }
+		}),
+		Save({ processor, name, trigger ->
+			processor.save(name)
+			trigger.reply { footer = EmbedFooter("Saved") }
+		}),
+		Load({ processor, name, trigger ->
+			try {
+				trigger.reply {
+					footer = EmbedFooter("Loaded")
+				}
+				processor.json.decodeFromString<Map<String, Character>>(File("$name.rpg").readText())
+			} catch (e: FileNotFoundException) {
+				trigger.reply {
+					footer = EmbedFooter("Failed to load, session with given name doesn't exist")
+				}
+				emptyMap()
+			}.let {
+				processor.characters.clear()
+				processor.characters.putAll(it)
+			}
+		}),
+	}
+
+	class CharacterCommand(override val name: String, override val execute: suspend BotContext.(processor: CommandProcessor, content: String, trigger: Message) -> Unit) : Command
 }
