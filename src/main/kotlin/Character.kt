@@ -13,8 +13,8 @@ enum class CharacterField(val update: Character.(to: Int) -> Unit, val get: Char
 	Stamina(update = { stamina = it }, get = { stamina }, emoji = "\uD83D\uDFE9"),
 }
 
-enum class Operation(val perform: (oldValue: Int, argument: Int) -> Int, val symbol: String) {
-	Set(perform = { _, argument -> argument }, symbol = "="),
+enum class Operation(val perform: (oldValue: Int, argument: Int) -> Int, val symbol: String, val allowNegativeArguments: Boolean = false) {
+	Set(perform = { _, argument -> argument }, symbol = "=", allowNegativeArguments = true),
 	Add(perform = { oldValue, argument -> oldValue + argument }, symbol = "+"),
 	Sub(perform = { oldValue, argument -> oldValue - argument }, symbol = "-"),
 }

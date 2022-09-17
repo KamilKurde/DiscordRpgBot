@@ -80,6 +80,7 @@ class CommandProcessor {
 		Operation.values().firstOrNull {
 			it.name.lowercase() == key.lowercase()
 		}?.let {
+			if (converted < 0 && it.allowNegativeArguments.not()) return
 			val oldValue = field.get(this)
 			val newValue = it.perform(oldValue, converted)
 			field.update(this, newValue)
