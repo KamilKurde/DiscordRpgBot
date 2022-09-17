@@ -100,11 +100,6 @@ class CommandProcessor {
 	}
 
 	enum class StaticCommand(override val execute: suspend BotContext.(processor: CommandProcessor, content: String, trigger: Message) -> Unit) : Command {
-		Create({ processor, content, trigger ->
-			val name = content.substringBefore(" ").trim()
-			processor.characters[name] = Character()
-			trigger.react("\uD83C\uDD97")
-		}),
 		Clear({ processor, name, trigger ->
 			when {
 				name.isBlank() -> processor.characters.clear()
@@ -112,9 +107,10 @@ class CommandProcessor {
 			}
 			trigger.reply { footer = EmbedFooter("Cleared") }
 		}),
-		Save({ processor, name, trigger ->
-			processor.save(name)
-			trigger.reply { footer = EmbedFooter("Saved") }
+		Create({ processor, content, trigger ->
+			val name = content.substringBefore(" ").trim()
+			processor.characters[name] = Character()
+			trigger.react("\uD83C\uDD97")
 		}),
 		Load({ processor, name, trigger ->
 			try {
@@ -131,6 +127,10 @@ class CommandProcessor {
 				processor.characters.clear()
 				processor.characters.putAll(it)
 			}
+		}),
+		Save({ processor, name, trigger ->
+			processor.save(name)
+			trigger.reply { footer = EmbedFooter("Saved") }
 		}),
 		Status({ processor, _, trigger ->
 			trigger.reply {
