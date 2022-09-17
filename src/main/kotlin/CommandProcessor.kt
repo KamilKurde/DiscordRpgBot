@@ -1,5 +1,5 @@
 import com.jessecorbett.diskord.api.channel.EmbedFooter
-import com.jessecorbett.diskord.api.common.Message
+import com.jessecorbett.diskord.api.common.*
 import com.jessecorbett.diskord.bot.BotContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -132,6 +132,12 @@ class CommandProcessor {
 				processor.characters.putAll(it)
 			}
 		}),
+		Status({ processor, _, trigger ->
+			trigger.reply {
+				this.title = "Status"
+				this.description = generateTable(processor.characters)
+			}
+		})
 	}
 
 	class CharacterCommand(override val name: String, override val execute: suspend BotContext.(processor: CommandProcessor, content: String, trigger: Message) -> Unit) : Command
