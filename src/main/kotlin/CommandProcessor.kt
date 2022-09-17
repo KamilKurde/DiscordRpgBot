@@ -112,6 +112,14 @@ class CommandProcessor {
 			processor.characters[name] = Character()
 			trigger.react("\uD83C\uDD97")
 		}),
+		Delete({ processor, content, trigger ->
+			processor.characters.asIterable().firstOrNull {
+				it.key.equals(content, ignoreCase = true)
+			}?.let { (characterName) ->
+				processor.characters.remove(characterName)
+				trigger.react("\uD83C\uDD97")
+			}
+		}),
 		Load({ processor, name, trigger ->
 			try {
 				trigger.reply {
