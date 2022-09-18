@@ -99,20 +99,20 @@ class CommandProcessor {
 		val execute: suspend BotContext.(processor: CommandProcessor, content: String, trigger: Message) -> Unit
 	}
 
-	enum class StaticCommand(override val execute: suspend BotContext.(processor: CommandProcessor, content: String, trigger: Message) -> Unit) : Command {
-		Clear({ processor, name, trigger ->
+	enum class StaticCommand(val help: String, override val execute: suspend BotContext.(processor: CommandProcessor, content: String, trigger: Message) -> Unit) : Command {
+		Clear("Clears current session", { processor, name, trigger ->
 			when {
 				name.isBlank() -> processor.characters.clear()
 				else -> File("$name.rpg").delete()
 			}
 			trigger.reply { footer = EmbedFooter("Cleared") }
 		}),
-		Create({ processor, content, trigger ->
+		Create("Creates character with given name", { processor, content, trigger ->
 			val name = content.substringBefore(" ").trim()
 			processor.characters[name] = Character()
 			trigger.react("\uD83C\uDD97")
 		}),
-		Delete({ processor, content, trigger ->
+		Delete("Deletes character with given name", { processor, content, trigger ->
 			processor.characters.asIterable().firstOrNull {
 				it.key.equals(content, ignoreCase = true)
 			}?.let { (characterName) ->
@@ -120,7 +120,26 @@ class CommandProcessor {
 				trigger.react("\uD83C\uDD97")
 			}
 		}),
-		Load({ processor, name, trigger ->
+		Help("Shows this screen", { _, _, trigger ->
+			trigger.reply {
+				val commands = StaticCommand.values().mapNotNull {
+					it.name to it.help
+				}
+				title = "Commands:"
+				description = buildString {
+					appendLine("**Static**:")
+					commands.forEach {
+						appendLine("* **" + it.first.uppercase() + "** - " + it.second)
+					}
+					appendLine("\n**Character-specific**:")
+					appendLine("* **[CHARACTER_NAME] [CHARACTER_FIELD]** - Gets given character field")
+					appendLine("* **[CHARACTER_NAME] [CHARACTER_FIELD] [OPERATION] [VALUE]** - Performs given operation on character field")
+					appendLine("**Character fields**: ${ CharacterField.values().joinToString{ it.name }}")
+					appendLine("**Operations**: ${ Operation.values().joinToString { it.name } }")
+				}
+			}
+		}),
+		Load("Loads session with given name as current session", { processor, name, trigger ->
 			try {
 				trigger.reply {
 					footer = EmbedFooter("Loaded")
@@ -136,11 +155,11 @@ class CommandProcessor {
 				processor.characters.putAll(it)
 			}
 		}),
-		Save({ processor, name, trigger ->
+		Save("Saves current session with given name", { processor, name, trigger ->
 			processor.save(name)
 			trigger.reply { footer = EmbedFooter("Saved") }
 		}),
-		Status({ processor, _, trigger ->
+		Status("Prints all data about current session", { processor, _, trigger ->
 			trigger.reply {
 				this.title = "Status"
 				this.description = generateTable(processor.characters)
